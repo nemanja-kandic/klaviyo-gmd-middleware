@@ -13,7 +13,8 @@ Klaviyo salje webhook na ovu funkciju, a funkcija zatim prosledjuje poruku na GM
 - GitHub nalog
 - Vercel nalog
 - GMD API token
-- GMD sender name
+- GMD SMS sender name
+- GMD Viber sender name
 
 ## 2. Env varijable u Vercel-u
 
@@ -21,14 +22,16 @@ U Vercel projektu dodaj ove env varijable:
 
 ```text
 GMD_API_TOKEN
-GMD_SENDER_NAME
+GMD_SMS_SENDER_NAME
+GMD_VIBER_SENDER_NAME
 ```
 
 Primer:
 
 ```text
 GMD_API_TOKEN=xxxxxxxxxxxxxxxx
-GMD_SENDER_NAME=Beobasta
+GMD_SMS_SENDER_NAME=Promo_info
+GMD_VIBER_SENDER_NAME=GMD SOLUTIONS
 ```
 
 Nemoj stavljati pravi token u GitHub repo.

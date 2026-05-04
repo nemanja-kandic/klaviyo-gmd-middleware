@@ -12,15 +12,13 @@ function createMessageId() {
 }
 
 function buildGmdRequest({ phoneNumber, channelPreference, message, messageId }) {
-  const sender = process.env.GMD_SENDER_NAME;
-
   if (channelPreference === "sms") {
     return {
       endpoint: SMS_ENDPOINT,
       payload: [
         {
           channelCode: "MAIN_SMS_HUB",
-          sender,
+          sender: process.env.GMD_SMS_SENDER_NAME,
           text: message,
           destinations: [{ to: phoneNumber, messageId }],
         },
@@ -32,7 +30,7 @@ function buildGmdRequest({ phoneNumber, channelPreference, message, messageId })
     to: phoneNumber,
     messageId,
     channelCode: "VIBER_GATEWAY_3",
-    sender,
+    sender: process.env.GMD_VIBER_SENDER_NAME,
     body: message,
   };
 
@@ -79,10 +77,15 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  if (!process.env.GMD_API_TOKEN || !process.env.GMD_SENDER_NAME) {
+  if (
+    !process.env.GMD_API_TOKEN ||
+    !process.env.GMD_SMS_SENDER_NAME ||
+    !process.env.GMD_VIBER_SENDER_NAME
+  ) {
     return res.status(500).json({
       error: "Server configuration error",
-      message: "Missing GMD_API_TOKEN or GMD_SENDER_NAME environment variable.",
+      message:
+        "Missing GMD_API_TOKEN, GMD_SMS_SENDER_NAME, or GMD_VIBER_SENDER_NAME environment variable.",
     });
   }
 

@@ -24,6 +24,7 @@ U Vercel projektu dodaj ove env varijable:
 GMD_API_TOKEN
 GMD_SMS_SENDER_NAME
 GMD_VIBER_SENDER_NAME
+KLAVIYO_WEBHOOK_SECRET
 ```
 
 Primer:
@@ -32,9 +33,11 @@ Primer:
 GMD_API_TOKEN=xxxxxxxxxxxxxxxx
 GMD_SMS_SENDER_NAME=Promo_info
 GMD_VIBER_SENDER_NAME=GMD SOLUTIONS
+KLAVIYO_WEBHOOK_SECRET=duga_nasumicna_tajna_koju_znaju_samo_klaviyo_i_vercel
 ```
 
 Nemoj stavljati pravi token u GitHub repo.
+Nemoj stavljati pravi `KLAVIYO_WEBHOOK_SECRET` u GitHub repo.
 
 ## 3. Webhook URL
 
@@ -46,7 +49,13 @@ https://tvoj-vercel-domen.vercel.app/api/ping-hook
 
 ## 4. Klaviyo payload
 
-U Klaviyo webhook-u salji JSON:
+U Klaviyo webhook-u dodaj header:
+
+```text
+x-webhook-secret: ista_vrednost_kao_KLAVIYO_WEBHOOK_SECRET
+```
+
+Zatim salji JSON:
 
 ```json
 {
@@ -79,6 +88,7 @@ Test zahtev:
 
 ```bash
 curl -X POST http://localhost:3000/api/ping-hook \
+  -H "x-webhook-secret: tvoja_test_tajna" \
   -H "Content-Type: application/json" \
   -d "{\"phone_number\":\"+3816XXXXXXX\",\"channel_preference\":\"sms\",\"message\":\"Test poruka\"}"
 ```

@@ -8,6 +8,7 @@ const ALLOWED_CHANNELS = new Set(["sms", "viber", "viber-fallback"]);
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_REQUEST_BODY_BYTES = 5000;
 const MAX_CAMPAIGN_NAME_LENGTH = 120;
+const MAX_LINK_TEXT_LENGTH = 30;
 const PHONE_NUMBER_PATTERN = /^\+[1-9]\d{7,14}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -74,7 +75,40 @@ function isValidEmail(email) {
   return typeof email === "string" && EMAIL_PATTERN.test(email.trim());
 }
 
-function buildGmdRequest({ phoneNumber, channelPreference, message, messageId }) {
+function isBlank(value) {
+  return value === undefined || value === null || value === "";
+}
+
+function isValidHttpsUrl(value) {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return false;
+  }
+
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function normalizeOptionalString(value) {
+  if (isBlank(value)) {
+    return "";
+  }
+
+  return String(value).trim();
+}
+
+function buildGmdRequest({
+  phoneNumber,
+  channelPreference,
+  message,
+  messageId,
+  image,
+  link,
+  linkText,
+}) {
   if (channelPreference === "sms") {
     return {
       endpoint: SMS_ENDPOINT,
@@ -96,6 +130,15 @@ function buildGmdRequest({ phoneNumber, channelPreference, message, messageId })
     sender: process.env.GMD_VIBER_SENDER_NAME,
     body: message,
   };
+
+  if (image) {
+    payload.image = image;
+  }
+
+  if (link && linkText) {
+    payload.link = link;
+    payload.linkText = linkText;
+  }
 
   if (channelPreference === "viber-fallback") {
     payload.fallbackMessageDataByTypes = [
@@ -124,6 +167,9 @@ async function recordKlaviyoEvent({
   status,
   gmdStatus,
   errorReason,
+  image,
+  link,
+  linkText,
 }) {
   if (!process.env.KLAVIYO_PRIVATE_API_KEY) {
     console.error("Klaviyo event logging is not configured", { messageId });
@@ -164,6 +210,11 @@ async function recordKlaviyoEvent({
           gmd_status: gmdStatus || null,
           error_reason: errorReason || null,
           message_length: typeof message === "string" ? message.length : 0,
+          has_image: Boolean(image),
+          has_link: Boolean(link && linkText),
+          image: image || null,
+          link: link || null,
+          link_text: linkText || null,
           source: "klaviyo-gmd-middleware",
         },
         metric: {
@@ -287,7 +338,16 @@ module.exports = async function handler(req, res) {
     campaign_name: campaignName,
     channel_preference: channelPreference,
     message,
+    image,
+    image_url: imageUrl,
+    link,
+    button_url: buttonUrl,
+    linkText,
+    button_text: buttonText,
   } = body;
+  const viberImage = normalizeOptionalString(image || imageUrl);
+  const viberLink = normalizeOptionalString(link || buttonUrl);
+  const viberLinkText = normalizeOptionalString(linkText || buttonText);
   const messageId = createMessageId();
 
   async function rejectInvalidRequest(publicMessage, errorReason) {
@@ -301,6 +361,9 @@ module.exports = async function handler(req, res) {
       messageId,
       status: "validation_failed",
       errorReason,
+      image: viberImage,
+      link: viberLink,
+      linkText: viberLinkText,
     });
 
     return res.status(400).json({
@@ -321,6 +384,16 @@ module.exports = async function handler(req, res) {
     return rejectInvalidRequest(
       "Invalid channel_preference. Expected one of: sms, viber, viber-fallback.",
       `Invalid channel_preference: ${channelPreference}`
+    );
+  }
+
+  if (
+    channelPreference === "sms" &&
+    (!isBlank(viberImage) || !isBlank(viberLink) || !isBlank(viberLinkText))
+  ) {
+    return rejectInvalidRequest(
+      "Rich message fields are only supported for viber and viber-fallback.",
+      "Rich message fields sent with sms channel."
     );
   }
 
@@ -353,11 +426,47 @@ module.exports = async function handler(req, res) {
     );
   }
 
+  if (!isBlank(viberImage) && !isValidHttpsUrl(viberImage)) {
+    return rejectInvalidRequest(
+      "Invalid image. Expected a public HTTPS image URL.",
+      `Invalid image URL: ${viberImage}`
+    );
+  }
+
+  if (!isBlank(viberLink) && !isValidHttpsUrl(viberLink)) {
+    return rejectInvalidRequest(
+      "Invalid link. Expected a public HTTPS URL.",
+      `Invalid button link URL: ${viberLink}`
+    );
+  }
+
+  if (
+    !isBlank(viberLinkText) &&
+    (typeof viberLinkText !== "string" ||
+      viberLinkText.trim().length === 0 ||
+      viberLinkText.length > MAX_LINK_TEXT_LENGTH)
+  ) {
+    return rejectInvalidRequest(
+      `Invalid linkText. Expected a string up to ${MAX_LINK_TEXT_LENGTH} characters.`,
+      "Invalid button text."
+    );
+  }
+
+  if (isBlank(viberLink) !== isBlank(viberLinkText)) {
+    return rejectInvalidRequest(
+      "Invalid button. Send both link and linkText, or neither.",
+      "Incomplete button data."
+    );
+  }
+
   const { endpoint, payload } = buildGmdRequest({
     phoneNumber,
     channelPreference,
     message,
     messageId,
+    image: viberImage,
+    link: viberLink,
+    linkText: viberLinkText,
   });
 
   try {
@@ -388,6 +497,9 @@ module.exports = async function handler(req, res) {
         status: "rejected_by_gmd",
         gmdStatus: gmdResponse.status,
         errorReason: `GMD API request failed with status ${gmdResponse.status}: ${truncate(errorBody, 300)}`,
+        image: viberImage,
+        link: viberLink,
+        linkText: viberLinkText,
       });
 
       throw new Error(
@@ -405,6 +517,9 @@ module.exports = async function handler(req, res) {
       messageId,
       status: "accepted_by_gmd",
       gmdStatus: gmdResponse.status,
+      image: viberImage,
+      link: viberLink,
+      linkText: viberLinkText,
     });
 
     return res.status(200).json({ success: true, messageId });

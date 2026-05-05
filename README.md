@@ -66,9 +66,17 @@ Zatim salji JSON:
   "email": "kupac@example.com",
   "campaign_name": "Naziv kampanje",
   "channel_preference": "viber-fallback",
-  "message": "Sadrzaj poruke"
+  "message": "Sadrzaj poruke",
+  "image": "https://yourdomain.com/image.jpg",
+  "link": "https://yourdomain.com/details",
+  "linkText": "Click Here"
 }
 ```
+
+Za Viber rich poruke polja `image`, `link` i `linkText` su opciona.
+Ako saljes dugme, posalji oba polja: `link` i `linkText`.
+Middleware prihvata i alias-e `image_url`, `button_url`, `button_text`.
+`image` i `link` moraju biti javni HTTPS URL-ovi.
 
 Middleware posle svakog pokusaja upisuje Klaviyo event:
 
@@ -105,7 +113,7 @@ Test zahtev:
 curl -X POST http://localhost:3000/api/ping-hook \
   -H "x-webhook-secret: tvoja_test_tajna" \
   -H "Content-Type: application/json" \
-  -d "{\"phone_number\":\"+3816XXXXXXX\",\"channel_preference\":\"sms\",\"message\":\"Test poruka\"}"
+  -d "{\"phone_number\":\"+3816XXXXXXX\",\"email\":\"kupac@example.com\",\"campaign_name\":\"Test kampanja\",\"channel_preference\":\"sms\",\"message\":\"Test poruka\"}"
 ```
 
 ## 6. Ocekivan odgovor
@@ -124,6 +132,6 @@ Ako fali broj telefona ili kanal:
 ```json
 {
   "error": "Bad Request",
-  "message": "Missing required fields: phone_number and channel_preference."
+  "message": "Missing required fields: phone_number, channel_preference, message, and campaign_name."
 }
 ```

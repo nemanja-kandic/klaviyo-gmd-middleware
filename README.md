@@ -25,6 +25,7 @@ GMD_API_TOKEN
 GMD_SMS_SENDER_NAME
 GMD_VIBER_SENDER_NAME
 KLAVIYO_WEBHOOK_SECRET
+KLAVIYO_PRIVATE_API_KEY
 ```
 
 Primer:
@@ -34,10 +35,12 @@ GMD_API_TOKEN=xxxxxxxxxxxxxxxx
 GMD_SMS_SENDER_NAME=Promo_info
 GMD_VIBER_SENDER_NAME=GMD SOLUTIONS
 KLAVIYO_WEBHOOK_SECRET=duga_nasumicna_tajna_koju_znaju_samo_klaviyo_i_vercel
+KLAVIYO_PRIVATE_API_KEY=klaviyo_private_api_key_sa_events_write_scope
 ```
 
 Nemoj stavljati pravi token u GitHub repo.
 Nemoj stavljati pravi `KLAVIYO_WEBHOOK_SECRET` u GitHub repo.
+Nemoj stavljati pravi `KLAVIYO_PRIVATE_API_KEY` u GitHub repo.
 
 ## 3. Webhook URL
 
@@ -60,10 +63,22 @@ Zatim salji JSON:
 ```json
 {
   "phone_number": "+3816XXXXXXX",
+  "email": "kupac@example.com",
+  "campaign_name": "Naziv kampanje",
   "channel_preference": "viber-fallback",
   "message": "Sadrzaj poruke"
 }
 ```
+
+Middleware posle svakog pokusaja upisuje Klaviyo event:
+
+```text
+GMD Message Accepted
+GMD Message Failed
+```
+
+Klijent moze da napravi segment po `GMD Message Failed` i filteru
+`campaign_name` kako bi video brojeve kojima slanje nije proslo.
 
 `channel_preference` moze biti:
 
